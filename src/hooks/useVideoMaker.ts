@@ -159,29 +159,26 @@ export default function useVideoMaker() {
     setIsGenerating(false);
   };
 
-  return {
-    photos,
-    videoUrl,
-    isUploading,
-    isGenerating,
-    propertyInfo,
-    contactInfo,
-    videoSettings,
-    projectId,
-    musicTrack,
-    addPhotos,
-    removePhoto,
-    reorderPhotos,
-    setCoverPhoto,
-    setPropertyInfo: setPropertyInfoState,   // ✅ Add this
-    setContactInfo: setContactInfoState,     // ✅ Add this
-    setVideoSettings: setVideoSettingsState, // ✅ Add this
-    setPropertyInfo,
-    setContactInfo,
-    setVideoSettings,
-    setMusicTrack,
-    generateVideo,
-    cancelGeneration,
-    findCoverPhoto: () => photos.find(photo => photo.isCover),
-  };
-}
+ return {
+  photos,
+  videoUrl,
+  isUploading,
+  isGenerating,
+  propertyInfo,
+  contactInfo,
+  videoSettings,
+  projectId,
+  musicTrack,
+  addPhotos,
+  removePhoto,
+  reorderPhotos,
+  setCoverPhoto,
+  setPropertyInfo: setPropertyInfoState,     // ✅ Important
+  setContactInfo: setContactInfoState,       // ✅ Important
+  setVideoSettings: setVideoSettingsState,   // ✅ Important
+  setMusicTrack,
+  generateVideo,
+  cancelGeneration,
+  findCoverPhoto: () => photos.find(p => p.isCover),
+};
+
