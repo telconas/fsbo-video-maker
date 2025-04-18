@@ -1,0 +1,93 @@
+Thanks for sharing your full code—this is a super detailed and well-structured script! Given that the **music and narration work** but the **video is rendering as a black screen**, the issue is almost certainly tied to how the images are being handled or displayed by FFmpeg.
+
+Here are the top suspects and things to try:
+
+---
+
+### 🔍 1. **Concat with Still Images Without `-framerate`**
+You're using:
+```bash
+ffmpeg -f concat -safe 0 -i "filelist.txt" ...
+```
+
+But when you're concatenating **still images** (not video clips), FFmpeg needs an explicit `-framerate` to properly display them as a video stream. Otherwise, you get a video with audio and black frames.
+
+✅ **Fix**: Add `-framerate 1` before `-f concat`:
+
+```ts
+let ffmpegCommand = `ffmpeg -y -framerate 1 -f concat -safe 0 -i "${fileListPath}" -c:v libx264 -pix_fmt yuv420p -r 24`;
+```
+
+---
+
+### 🔍 2. **Concat Format & Image Inputs**
+You're using a file list with image paths like:
+```
+file 'processed-123.jpg'
+duration 4
+```
+This only works with **ffmpeg >= 4.2** and **images encoded as video stream-compatible formats**.
+
+Also, the **final image must be repeated** (which you do), but make sure the format of the image files being used is compatible (`yuv420p`, which you're enforcing with `format=yuv420p`).
+
+---
+
+### ✅ 3. **Check File Accessibility and Format**
+Ensure:
+- The processed photo files are **actually being written** and exist before rendering.
+- You can test this by logging `processedPhotoPath` and using `ffprobe` or manually inspecting them.
+  
+Add this temporarily:
+```ts
+console.log("Processing photo:", processedPhotoPath);
+```
+
+---
+
+### 🔍 4. **Transition Filter Interfering**
+You're applying a fade filter globally:
+```bash
+-vf "scale=...,fade=in:...,fade=out:..."
+```
+This may **not work** when applied across concatenated still frames, especially since each frame is technically a different video.
+
+✅ Try removing this for debugging:
+```ts
+// Temporarily remove this to see if images show up
+// -vf "scale=...,fade=..."
+```
+
+If removing the fade makes the images show up, you'll need to apply fade transitions **between slides**, not globally.
+
+---
+
+### ✅ 5. **Check Slide Duration Math**
+Your fade out time is:
+```ts
+fade=t=out:st=${(photos.length + 1) * slideDuration - 1}
+```
+But that may go beyond the length of your video if something's off. You might try hardcoding `fade=out:st=10:d=1` for testing.
+
+---
+
+### 🛠 6. **Testing Tip**
+Run the intermediate filelist as a standalone FFmpeg command:
+```bash
+ffmpeg -framerate 1 -f concat -safe 0 -i filelist.txt -c:v libx264 -pix_fmt yuv420p test.mp4
+```
+This will confirm whether the issue is in the photo-to-video part or in the audio layering part.
+
+---
+
+### 🧪 Bonus: Alternative approach for stills (FFmpeg slideshow style)
+Sometimes using `ffmpeg -loop 1` per image works better than concat. That would mean rendering each image as a short video and then concatenating those instead.
+
+---
+
+### Summary of Suggestions
+- ✅ Add `-framerate 1` before `-f concat`
+- 🔧 Temporarily remove `-vf "fade=..."` and test again
+- 🕵️‍♂️ Log and check that all `processed-*.jpg` images are actually written
+- 🧪 Try building just the slideshow video without any audio to test image inclusion
+
+Let me know if you want help rewriting the `ffmpegCommand` to use a different approach or to debug the `filelist.txt` output!

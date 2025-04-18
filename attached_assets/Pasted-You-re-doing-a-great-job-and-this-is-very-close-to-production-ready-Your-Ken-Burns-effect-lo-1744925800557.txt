@@ -1,0 +1,115 @@
+You're doing a great job — and this is *very* close to production-ready.
+
+Your Ken Burns effect logic looks solid, but based on your description ("pictures not rendering", only title/contact slides showing), here are the most likely issues and how to resolve them:
+
+---
+
+### ✅ 1. **Problem: `zoompan` requires `-filter_complex`, not `-vf` (when used with `-loop 1`)**
+
+The `zoompan` filter is a **video source filter**, meaning it generates frames rather than operating on a stream of frames. When you use it with `-loop 1 -i image.jpg -vf "zoompan..."`, FFmpeg may silently fail or generate a black screen, because the input is not actually a video stream.
+
+> 🔥 This is the **most likely reason** you're seeing a black screen for the photo segments.
+
+---
+
+### ✅ 2. **Fix: Use `-filter_complex` instead of `-vf` for zoompan**
+
+Here’s the correct way to do a Ken Burns zoompan effect:
+
+```bash
+ffmpeg -y -loop 1 -t 4 -i image.jpg -filter_complex "[0:v]zoompan=z='zoom+0.0005':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=96:s=1920x1080,format=yuv420p" -c:v libx264 -t 4 -r 24 output.mp4
+```
+
+And in your `execPromise` call:
+
+```ts
+const durationFrames = slideDuration * 24;
+const kenBurns = `[0:v]zoompan=z='min(zoom+0.0005,1.1)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${durationFrames}:s=1920x1080,format=yuv420p`;
+
+await execPromise(
+  `ffmpeg -y -loop 1 -i "${photoPath}" -filter_complex "${kenBurns}" -t ${slideDuration} -c:v libx264 -r 24 -preset fast "${videoOutputPath}"`
+);
+```
+
+**Note**: you no longer need `-vf`, since the entire logic is passed through `-filter_complex`.
+
+---
+
+### ✅ 3. **Sanity Check: Add Logging for Missing `.mp4` Files**
+
+You're doing:
+```ts
+if (fs.existsSync(videoOutputPath)) {
+  fileContent += `file '${videoOutputPath}'\n`;
+} else {
+  console.error("Failed to create video segment...");
+}
+```
+
+This is great. Just make sure:
+- `photoPath` is pointing to **actual image files** (WebP/JPEG/etc.)
+- No silent errors during FFmpeg execution — you can `console.log(stdout, stderr)` from `execPromise` to confirm.
+
+---
+
+### 🧪 4. **Optional: Log Output of FFmpeg**
+
+Just for debugging:
+```ts
+try {
+  const { stdout, stderr } = await execPromise(ffmpegCommand);
+  console.log(stdout);
+  console.error(stderr);
+} catch (err) {
+  console.error("FFmpeg failed:", err);
+}
+```
+
+Sometimes FFmpeg fails **silently** inside `execPromise`, so this gives visibility.
+
+---
+
+### ✅ 5. **Check File List Format for MP4 Concat**
+
+Since you're using pre-rendered `.mp4` files in a concat file, this is correct:
+
+```
+file 'title-xyz.mp4'
+file 'video-1.mp4'
+file 'video-2.mp4'
+file 'contact.mp4'
+```
+
+Just make sure there’s:
+- **No extra line breaks**
+- **No file missing**
+- Each line ends with a newline `\n`
+
+---
+
+### 🧩 Bonus: Debug One Image in Isolation
+
+Try running this command directly in your terminal (replace paths):
+
+```bash
+ffmpeg -y -loop 1 -i image.jpg -filter_complex "[0:v]zoompan=z='zoom+0.0005':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=96:s=1920x1080,format=yuv420p" -t 4 -c:v libx264 -r 24 test.mp4
+```
+
+If it works, it’s confirmed that the zoompan filter is the root problem.
+
+---
+
+### ✅ TL;DR - Changes You Should Make
+
+#### ✅ Replace `-vf` with `-filter_complex` like this:
+```ts
+const kenBurns = `[0:v]zoompan=z='min(zoom+0.0005,1.1)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${slideDuration * 24}:s=1920x1080,format=yuv420p`;
+
+await execPromise(
+  `ffmpeg -y -loop 1 -i "${photoPath}" -filter_complex "${kenBurns}" -t ${slideDuration} -c:v libx264 -preset fast -r 24 "${videoOutputPath}"`
+);
+```
+
+---
+
+Let me know if you want help tweaking the Ken Burns effect to **pan slowly in a direction** (like top-left to bottom-right) or switch directions per photo — it's a fun detail that really makes a difference.

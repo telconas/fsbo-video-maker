@@ -1,0 +1,76 @@
+Great question — and this is one of those sneaky FFmpeg gotchas. If your `safePrice` (e.g., `$1,050,000`) is only showing the **first 4 characters**, here’s why it’s happening:
+
+---
+
+## 🚨 Problem: **Comma or special characters not escaped properly**
+
+FFmpeg's `drawtext=text='...'` **does not handle commas, colons, or special symbols well unless properly escaped**.
+
+So this:
+```ts
+text='${safePrice}'
+```
+
+When `safePrice = "$1,050,000"`  
+FFmpeg sees:
+```bash
+text='$1,050,000'
+```
+
+It treats the **commas and dollar signs** oddly — sometimes truncating the text or ignoring it after the first comma.
+
+---
+
+## ✅ Solution: Escape the text for FFmpeg
+
+Before passing it into the command, make sure you **double escape special characters**, like this:
+
+```ts
+function escapeForFfmpeg(text: string): string {
+  return text
+    .replace(/\\/g, '\\\\')     // escape backslashes
+    .replace(/:/g, '\\:')        // escape colons (for time syntax)
+    .replace(/'/g, "\\'")        // escape single quotes
+    .replace(/,/g, '\\,')        // escape commas (critical!)
+    .replace(/\$/g, '\\$');      // escape dollar signs (critical!)
+}
+```
+
+Then pass it like this:
+
+```ts
+const safePrice = escapeForFfmpeg(video.price || "$0");
+```
+
+---
+
+### ✅ Bonus: Use double quotes inside `text=...`
+
+To prevent issues with apostrophes in addresses, consider flipping the outer quotes to double and inner quotes to single:
+
+```ts
+text=\"${safePrice}\"
+```
+
+Example:
+
+```ts
+drawtext=fontfile=...:text=\"$1\\,050\\,000\":...
+```
+
+---
+
+## ✅ Your Final Working Line
+
+```ts
+const titleSlideCmd =
+  `ffmpeg -y -f lavfi -i color=c=black:s=1920x1080 -vf ` +
+  `"drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='${escapeForFfmpeg(safeTitle)}':fontcolor=white:fontsize=72:x=(w-text_w)/2:y=(h-text_h)/2-90, ` +
+  `drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:text='${escapeForFfmpeg(safeLocation)}':fontcolor=white:fontsize=48:x=(w-text_w)/2:y=(h-text_h)/2, ` +
+  `drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='${escapeForFfmpeg(safePrice)}':fontcolor=white:fontsize=32:x=(w-text_w)/2:y=(h-text_h)/2+90" ` +
+  `-frames:v 1 "${titleImagePath}"`;
+```
+
+---
+
+Let me know if you want me to rewrite your whole FFmpeg command string with this built-in, or auto-format large numbers into human-readable strings like “$1.05M” if space is tight.

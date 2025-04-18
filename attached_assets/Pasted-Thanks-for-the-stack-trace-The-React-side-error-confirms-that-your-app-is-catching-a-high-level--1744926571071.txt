@@ -1,0 +1,80 @@
+Thanks for the stack trace! The React-side error confirms that your app is catching a **high-level `Error: Video generation failed`**, but we still **don’t know the actual FFmpeg error** from the Node.js process — and that’s the key to solving this.
+
+---
+
+### ✅ What We Still Need: Actual FFmpeg `stderr` Output
+
+Your function is doing this:
+
+```ts
+await execPromise(`ffmpeg ...`);
+```
+
+If **FFmpeg fails**, you’ll only see a **generic error** unless you **explicitly capture `stderr`** in the catch block.
+
+---
+
+### ✅ Let’s Update the FFmpeg Error Handling Block
+
+Replace this (inside your photo video segment generation loop):
+
+```ts
+await execPromise(`ffmpeg -y -loop 1 -i "${photoPath}" -filter_complex "${kenBurns}" -t ${slideDuration} ...`);
+```
+
+With this:
+
+```ts
+const ffmpegCmd = `ffmpeg -y -loop 1 -i "${photoPath}" -filter_complex "${kenBurns}" -t ${slideDuration} -c:v libx264 -preset fast -r 24 "${videoOutputPath}"`;
+
+try {
+  console.log(`Running FFmpeg for photo: ${photo.originalName}`);
+  console.log(ffmpegCmd);
+  const { stdout, stderr } = await execPromise(ffmpegCmd);
+  console.log(stdout);
+  console.error(stderr);
+} catch (err: any) {
+  console.error(`🔥 FFmpeg failed for ${photo.originalName}`);
+  console.error(`Command: ${ffmpegCmd}`);
+  if (err.stderr) console.error("stderr:", err.stderr);
+  if (err.stdout) console.log("stdout:", err.stdout);
+  throw new Error(`FFmpeg failed: ${photo.originalName}`);
+}
+```
+
+---
+
+### ✅ Why This Is Critical
+
+You’ll now see errors like:
+
+- `zoompan filter not found`
+- `Cannot read image file ...`
+- `Unrecognized option 'filter_complex'`
+- `Invalid expression 'n/0'`
+
+All of these are **silent** without stderr captured.
+
+---
+
+### ✅ Next Steps:
+
+1. **Replace one FFmpeg `execPromise` block with the above.**
+2. **Run the app again and look at the terminal output** — not just browser console.
+3. **Paste the stderr here** if you're still unsure — I’ll spot the exact FFmpeg problem in seconds.
+
+---
+
+### ✨ Bonus Tip: Make It Work with One Photo First
+
+Try processing just **one known-good JPEG** file with this stripped-down zoompan:
+
+```ts
+const kenBurns = `[0:v]zoompan=z='min(1.0+0.0005*n,1.1)':x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2':d=${durationFrames}:s=1920x1080,format=yuv420p`;
+```
+
+If this works, then layer back in narration, alternate pans, etc.
+
+---
+
+Let me know what stderr shows — that’s our final puzzle piece.

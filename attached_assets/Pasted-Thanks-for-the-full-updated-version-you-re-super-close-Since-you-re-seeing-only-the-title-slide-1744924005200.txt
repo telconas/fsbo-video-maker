@@ -1,0 +1,75 @@
+Thanks for the full updated version — you’re super close! Since you're seeing **only the title slide and contact slide**, but not the photos in between, that strongly suggests an issue with how the file list is **being interpreted by FFmpeg**, specifically how it’s concatenating **images** (as frames) versus **video streams**.
+
+Here’s a breakdown of what’s likely going wrong and **how to fix it**:
+
+---
+
+## 🔥 **Root Issue:**
+The `-f concat -safe 0 -i filelist.txt` method **does not work well with images**, even if you give durations. It’s designed for **concatenating actual video files**, not still images (JPEGs or PNGs).
+
+That’s why:
+- Title slide and contact slide (generated as video-compatible PNGs) show up.
+- JPEGs (from your WebP conversions) are **ignored** or seen as "1 frame, 0 seconds long".
+
+---
+
+## ✅ **Fix Approach:**
+Instead of `-f concat`, you need to **use FFmpeg's image slideshow approach**, where you loop each image with `-loop 1`, set duration, then chain them.
+
+### Option 1: Use FFmpeg Complex Filter (Best Quality)
+
+Here’s how you could rewrite your image inclusion step:
+
+### 🧠 Generate per-image video segments like:
+```bash
+ffmpeg -y -loop 1 -t 4 -i slide-1.jpg -vf "scale=1280:720,pad=1280:720:(ow-iw)/2:(oh-ih)/2,format=yuv420p" -c:v libx264 -pix_fmt yuv420p -r 24 slide-1.mp4
+```
+
+Do this for each image and store temp `.mp4` clips. Then **use the `concat` method on the MP4s**, which will work 100%.
+
+Update this logic:
+```ts
+const jpgOutputPath = path.join(tempDir, `slide-${photo.id}-${i}.jpg`);
+const videoOutputPath = path.join(tempDir, `video-${photo.id}-${i}.mp4`);
+
+await execPromise(
+  `ffmpeg -y -loop 1 -t ${slideDuration} -i "${jpgOutputPath}" -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,format=yuv420p" -c:v libx264 -pix_fmt yuv420p -r 24 "${videoOutputPath}"`
+);
+
+fileContent += `file '${videoOutputPath}'\n`;
+```
+
+Then the file list becomes all `.mp4` video segments like:
+```
+file 'title.mp4'
+file 'video-1.mp4'
+file 'video-2.mp4'
+file 'contact.mp4'
+```
+
+And then:
+```bash
+ffmpeg -f concat -safe 0 -i filelist.txt -c copy final.mp4
+```
+
+---
+
+## Option 2: Use `ffmpeg -framerate 1 -pattern_type glob -i 'slide-*.jpg'` (Quick but inflexible)
+
+If your image slides are named in sequence like `slide-1.jpg`, `slide-2.jpg`, etc., and are evenly timed, you could do:
+```bash
+ffmpeg -y -framerate 1 -pattern_type glob -i 'slide-*.jpg' -c:v libx264 -pix_fmt yuv420p output.mp4
+```
+But this loses **title/contact slides** and doesn't let you mix narration/audio easily.
+
+---
+
+## ✅ Summary of Fix Steps:
+1. **Replace `-f concat` method with looping mp4 video segments per slide**.
+2. Convert each image into a **short mp4 video** using `-loop 1 -t 4 -i image.jpg ...`.
+3. Update your file list to use those `.mp4` clips.
+4. Use FFmpeg to concatenate those `.mp4`s using `-f concat`.
+
+---
+
+If you want, I can help you rewrite the image-processing section of your code to do this the right way — just say the word!

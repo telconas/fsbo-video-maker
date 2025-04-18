@@ -1,0 +1,79 @@
+Thanks for dropping that error stack — this reveals **two key issues**:
+
+---
+
+### 💥 Primary Error:
+
+```
+Error uploading photo: TypeError: Cannot read properties of null (reading 'toString')
+    at uploadPhoto (useVideoMaker.ts:153:40)
+```
+
+This line means somewhere in your `uploadPhoto` function, you're trying to call `.toString()` on something that’s `null`.
+
+### 🔍 Most Likely Cause:
+
+You're doing something like:
+
+```ts
+const fileExtension = file.name.split(".").pop().toString();
+```
+
+But if `file.name` is `null` or missing a dot, `.pop()` returns `undefined`, and then calling `.toString()` fails.
+
+---
+
+### ✅ Fix That First:
+
+Update your `uploadPhoto` code like this:
+
+```ts
+const extension = file?.name?.includes(".")
+  ? file.name.split(".").pop() || ""
+  : "";
+```
+
+Or safely:
+
+```ts
+const extension = String(file?.name?.split(".").pop() || "");
+```
+
+Also, validate that `file` is not `null`:
+
+```ts
+if (!file) {
+  console.error("No file selected for upload");
+  return;
+}
+```
+
+---
+
+### ⚠️ Secondary Warning (React Beautiful DnD):
+
+```
+Warning: Connect(Droppable): Support for defaultProps will be removed...
+```
+
+That’s just a future deprecation warning from `react-beautiful-dnd`. Not causing crashes — you can ignore for now, or switch to [`@hello-pangea/dnd`](https://github.com/hello-pangea/dnd) if you want to stay current.
+
+---
+
+### 🚧 Final Thoughts
+
+Your video generation failure is likely a **chain reaction** from the photo upload failing → resulting in no images being available → FFmpeg fails to create segments.
+
+Once the upload issue is fixed, your `photos[]` array should populate correctly, and FFmpeg should get valid inputs to build with.
+
+---
+
+### ✅ What to Do Now
+
+1. **Fix the `toString()` on null in `uploadPhoto`.**
+2. **Add a check that `photo.storedName` and `photoPath` are defined before you pass them into FFmpeg.**
+3. Retry your video generation — if it still fails, the `stderr` logging from FFmpeg (like I showed earlier) will now be meaningful.
+
+---
+
+If you’d like, drop the current `uploadPhoto()` code here and I’ll patch it for you — happy to help.
