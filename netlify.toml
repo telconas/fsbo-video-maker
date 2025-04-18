@@ -1,4 +1,9 @@
 [build]
 base = "client"
 command = "npm run build"
-publish = "dist"     # ✅ now points to client/dist
+publish = "dist"
+  
+[build.environment]
+  NODE_VERSION = "18"
+
+
