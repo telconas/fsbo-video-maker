@@ -319,7 +319,8 @@ export default function useVideoMaker() {
       };
       
       // Update the project data
-      await apiRequest("PATCH", `/api/videos/${projectId}`, data);
+     // Update the project data
+await apiRequest("PATCH", `/.netlify/functions/videos-update?id=${projectId}`, data);
     } catch (error) {
       console.error("Error updating project data:", error);
       // Continue anyway, as long as we have a project ID
@@ -329,14 +330,14 @@ export default function useVideoMaker() {
     setIsGenerating(true);
     
     try {
-      const response = await apiRequest("POST", `/api/videos/${projectId}/generate`);
+      const response = await apiRequest("POST", "/.netlify/functions/videos", data);
       const result = await response.json();
       
       // Poll for status until complete
       let videoData;
       do {
         await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds between polls
-        const statusResponse = await fetch(`/api/videos/${projectId}`, {
+        const statusResponse = await fetch(`/.netlify/functions/videos/${projectId}`, {
           credentials: "include"
         });
         videoData = await statusResponse.json();
