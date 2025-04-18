@@ -76,7 +76,7 @@ export default function useVideoMaker() {
           ...prev, 
           { 
             id: photo.id, 
-            url: `/api/uploads/${photo.storedName}`,
+            url: `/uploads/${photo.storedName}`,
             originalName: photo.originalName,
             isCover: photos.length === 0 ? true : false // First photo is cover by default
           }
