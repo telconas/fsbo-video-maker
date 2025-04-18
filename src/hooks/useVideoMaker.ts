@@ -173,6 +173,9 @@ export default function useVideoMaker() {
     removePhoto,
     reorderPhotos,
     setCoverPhoto,
+    setPropertyInfo: setPropertyInfoState,   // ✅ Add this
+    setContactInfo: setContactInfoState,     // ✅ Add this
+    setVideoSettings: setVideoSettingsState, // ✅ Add this
     setPropertyInfo,
     setContactInfo,
     setVideoSettings,
