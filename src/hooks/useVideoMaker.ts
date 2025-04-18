@@ -389,7 +389,7 @@ await apiRequest("PATCH", `/.netlify/functions/videos-update?id=${projectId}`, d
     if (!projectId) return;
     
     try {
-      await apiRequest("POST", `/api/videos/${projectId}/cancel`);
+      await apiRequest("POST", `/.netlify/functions/videos${projectId}/cancel`);
       setIsGenerating(false);
       
       toast({
